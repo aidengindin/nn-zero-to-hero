@@ -101,6 +101,9 @@ class Neuron:
         out = act.tanh()
         return out
 
+    def parameters(self):
+        return self.w + [self.b]
+
 class Layer:
 
     def __init__(self, nin, nout):
@@ -109,6 +112,9 @@ class Layer:
     def __call__(self, x):
         outs = [n(x) for n in self.neurons]
         return outs[0] if len(outs) == 1 else outs
+
+    def parameters(self):
+        return [p for neuron in self.neurons for p in neuron.parameters()]
 
 class MLP:
 
@@ -120,6 +126,26 @@ class MLP:
         for layer in self.layers:
             x = layer(x)
         return x
+
+    def parameters(self):
+        return [p for layer in self.layers for p in layer.parameters()]
+
+    def train(self, inputs, targets, learning_rate=0.05, num_iterations=20):
+        for i in range(num_iterations):
+            # forward pass
+            predictions = [self(x) for x in inputs]
+            loss = sum((out - gt)**2 for gt, out in zip(targets, predictions))
+
+            # backward pass
+            for p in self.parameters():
+                p.grad = 0.0
+            loss.backward() # type: ignore
+        
+            # update
+            for p in self.parameters():
+                p.data += -learning_rate * p.grad
+
+            print(i, loss.data) # type: ignore
 
 def trace(root):
     nodes, edges = set(), set()
@@ -149,33 +175,18 @@ def draw_dot(root):
 
 if __name__ == '__main__':
 
-    x = [2.0, 3.0]
     n = MLP(3, [4, 4, 1])
-    o = n(x)
 
-    # dot = draw_dot(o)
-    # dot.format = 'svg'
-    # dot.render('./out/graph.svg')
+    xs = [
+        [2.0, 3.0, -1.0,],
+        [3.0, -1.0, 0.5],
+        [0.5, 1.0, 1.0],
+        [1.0, 1.0, -1.0]
+    ]
+    ys = [1.0, -1.0, -1.0, 1.0] # desired targets
 
-    # # inputs
-    # x1 = Value(2.0, label='x1')
-    # x2 = Value(0.0, label='x2')
+    n.train(xs, ys)
 
-    # # weights
-    # w1 = Value(-3.0, label='w1')
-    # w2 = Value(1.0, label='w2')
-
-    # # bias
-    # b = Value(6.881373587, label='b')
-
-    # x1w1 = x1 * w1; x1w1.label = 'x1w1'
-    # x2w2 = x2 * w2; x2w2.label = 'x2w2'
-    # x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1w1 + x2w2'
-    # n = x1w1x2w2 + b; n.label = 'n'
-
-    # o = n.tanh(); o.label = 'o'
-    # o.backward()
-
-    # dot = draw_dot(o)
+    # dot = draw_dot(loss)
     # dot.format = 'svg'
     # dot.render('./out/graph.svg')
